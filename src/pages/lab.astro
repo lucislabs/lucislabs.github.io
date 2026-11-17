@@ -1,0 +1,79 @@
+---
+import Base from '../layouts/Base.astro';
+import { scaleLinear, scaleBand, scaleSequential } from 'd3-scale';
+import { interpolateRdBu } from 'd3-scale-chromatic';
+import { bin, extent, max } from 'd3-array';
+import { dataset, ols, pearson } from '../lib/stats';
+
+const rows = dataset();
+const xs = rows.map((r) => r.x), ys = rows.map((r) => r.y), zs = rows.map((r) => r.z);
+const fit = ols(xs, ys);
+const colors = ['#5eead4', '#f59e0b', '#a78bfa'];
+
+const W = 560, H = 340, m = { t: 12, r: 12, b: 34, l: 40 };
+const [x0, x1] = extent(xs) as [number, number];
+const [y0, y1] = extent(ys) as [number, number];
+const sx = scaleLinear().domain([x0, x1]).nice().range([m.l, W - m.r]);
+const sy = scaleLinear().domain([y0, y1]).nice().range([H - m.b, m.t]);
+const ticksX = sx.ticks(6), ticksY = sy.ticks(5);
+
+const hb = bin().domain(sx.domain() as [number, number]).thresholds(18)(xs);
+const hy = scaleLinear().domain([0, max(hb, (b) => b.length)!]).range([H - m.b, m.t]);
+
+const vars = { x: xs, y: ys, z: zs };
+const keys = Object.keys(vars) as (keyof typeof vars)[];
+const cs = 70, cm = 56;
+const cband = scaleBand<string>().domain(keys).range([0, cs * keys.length]);
+const cc = scaleSequential(interpolateRdBu).domain([1, -1]);
+const corr = keys.flatMap((a) => keys.map((b) => ({ a, b, r: pearson(vars[a], vars[b]) })));
+---
+<Base title="Lab" description="Statistical figures rendered at build time.">
+  <div class="wrap">
+    <div class="page-head">
+      <p class="eyebrow">lab</p><h1>Lab</h1>
+      <p class="mute prose">Three clusters of synthetic observations, summarised with OLS, a histogram, and a correlation matrix. Rendered to SVG during the build. No client-side JavaScript.</p>
+    </div>
+
+    <figure class="figure">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Scatter plot of y against x with fitted regression line">
+        {ticksX.map((t) => (<g><line x1={sx(t)} x2={sx(t)} y1={m.t} y2={H - m.b} class="grid" /><text x={sx(t)} y={H - 14} class="tick" text-anchor="middle">{t}</text></g>))}
+        {ticksY.map((t) => (<g><line y1={sy(t)} y2={sy(t)} x1={m.l} x2={W - m.r} class="grid" /><text x={m.l - 6} y={sy(t) + 4} class="tick" text-anchor="end">{t}</text></g>))}
+        {rows.map((r) => (<circle cx={sx(r.x)} cy={sy(r.y)} r="3.2" fill={colors[r.g]} fill-opacity=".65" />))}
+        <line x1={sx(x0)} y1={sy(fit.intercept + fit.slope * x0)} x2={sx(x1)} y2={sy(fit.intercept + fit.slope * x1)} stroke="#fff" stroke-width="1.6" stroke-dasharray="5 4" />
+        <text x={m.l + 8} y={m.t + 12} class="tick">y = {fit.slope.toFixed(2)}x {fit.intercept < 0 ? '−' : '+'} {Math.abs(fit.intercept).toFixed(2)} · R² = {fit.r2.toFixed(2)}</text>
+      </svg>
+      <figcaption>Fig 1. OLS fit across all groups. Group structure (colour) is ignored by the pooled model.</figcaption>
+    </figure>
+
+    <div class="two">
+      <figure class="figure">
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Histogram of x">
+          {hb.map((b) => (<rect x={sx(b.x0!) + 1} width={Math.max(0, sx(b.x1!) - sx(b.x0!) - 2)} y={hy(b.length)} height={H - m.b - hy(b.length)} fill="#5eead4" fill-opacity=".75" />))}
+          {ticksX.map((t) => (<text x={sx(t)} y={H - 14} class="tick" text-anchor="middle">{t}</text>))}
+          <line x1={m.l} x2={W - m.r} y1={H - m.b} y2={H - m.b} class="axis" />
+        </svg>
+        <figcaption>Fig 2. Distribution of x. Multimodal, which is the clustering showing through.</figcaption>
+      </figure>
+
+      <figure class="figure">
+        <svg viewBox={`0 0 ${cs * keys.length + cm + 10} ${cs * keys.length + cm}`} role="img" aria-label="Correlation matrix">
+          <g transform={`translate(${cm},${cm - 20})`}>
+            {corr.map((c) => (<g><rect x={cband(c.b)} y={cband(c.a)} width={cs - 2} height={cs - 2} rx="4" fill={cc(c.r)} /><text x={cband(c.b)! + cs / 2} y={cband(c.a)! + cs / 2 + 4} text-anchor="middle" class="cell" fill={Math.abs(c.r) > 0.6 ? '#fff' : '#111'}>{c.r.toFixed(2)}</text></g>))}
+            {keys.map((k) => (<g><text x={cband(k)! + cs / 2} y="-8" text-anchor="middle" class="tick">{k}</text><text x="-10" y={cband(k)! + cs / 2 + 4} text-anchor="end" class="tick">{k}</text></g>))}
+          </g>
+        </svg>
+        <figcaption>Fig 3. Pearson correlation. Diverging RdBu scale, centred at zero.</figcaption>
+      </figure>
+    </div>
+  </div>
+</Base>
+<style is:global>
+  .figure .grid { stroke: var(--line); }
+  .figure .axis { stroke: var(--mute); }
+  .figure .tick { fill: var(--mute); font: 11px var(--mono); }
+  .figure .cell { font: 600 12px var(--mono); }
+</style>
+<style>
+  .two { align-items: start; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .prose { max-width: 70ch; }
+</style>
