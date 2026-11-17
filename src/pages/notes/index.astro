@@ -1,0 +1,18 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+const notes = (await getCollection('notes')).sort((a, b) => +b.data.date - +a.data.date);
+---
+<Base title="Notes" description="Writing on data science and GIS.">
+  <div class="wrap prose">
+    <div class="page-head"><p class="eyebrow">writing</p><h1>Notes</h1></div>
+    {notes.map((n) => (
+      <a class="card" href={`/notes/${n.id}/`} style="margin-bottom:14px">
+        <span class="mute mono">{n.data.date.toISOString().slice(0, 10)}</span>
+        <h3 style="margin:6px 0">{n.data.title}</h3>
+        <p class="mute" style="margin:0">{n.data.summary}</p>
+      </a>
+    ))}
+  </div>
+</Base>
+<style>.mono { font: .8rem var(--mono); }</style>

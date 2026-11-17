@@ -1,0 +1,33 @@
+---
+import { contours } from 'd3-contour';
+import { geoPath } from 'd3-geo';
+import { rng } from '../lib/rng';
+
+const { seed = 11, levels = 16 } = Astro.props;
+const W = 160, H = 90;
+const r = rng(seed);
+const bumps = Array.from({ length: 7 }, () => ({
+  x: r.next() * W, y: r.next() * H, a: 0.5 + r.next(), s: 14 + r.next() * 22,
+}));
+const values = new Float64Array(W * H);
+for (let y = 0; y < H; y++)
+  for (let x = 0; x < W; x++) {
+    let v = 0.15 * Math.sin(x / 9) * Math.cos(y / 7);
+    for (const b of bumps) v += b.a * Math.exp(-((x - b.x) ** 2 + (y - b.y) ** 2) / (2 * b.s * b.s));
+    values[y * W + x] = v;
+  }
+const max = Math.max(...values), min = Math.min(...values);
+const th = Array.from({ length: levels }, (_, i) => min + ((i + 1) / (levels + 1)) * (max - min));
+const path = geoPath();
+const paths = contours().size([W, H]).thresholds(th)(Array.from(values)).map((c, i) => ({
+  d: path(c) ?? '', o: 0.15 + (i / levels) * 0.6, major: i % 4 === 3,
+}));
+---
+<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true" class="contours">
+  {paths.map((p) => (
+    <path d={p.d} fill="none" stroke="currentColor" stroke-opacity={p.o} stroke-width={p.major ? 0.5 : 0.25} />
+  ))}
+</svg>
+<style>
+  .contours { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--accent); mask-image: linear-gradient(to bottom, #000 40%, transparent); -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent); }
+</style>

@@ -1,0 +1,76 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import Contours from '../components/Contours.astro';
+import { stations } from '../lib/geo';
+import { dataset } from '../lib/stats';
+
+const projects = (await getCollection('projects')).filter((p) => p.data.featured).sort((a, b) => b.data.year - a.data.year);
+const notes = (await getCollection('notes')).sort((a, b) => +b.data.date - +a.data.date).slice(0, 3);
+const stats = [
+  [stations().features.length, 'monitoring stations'],
+  [dataset().length, 'observations modelled'],
+  [(await getCollection('projects')).length, 'projects'],
+  ['EPSG:4326', 'default CRS'],
+];
+---
+<Base>
+  <section class="hero">
+    <Contours seed={11} />
+    <div class="wrap inner">
+      <p class="eyebrow">data science · spatial analysis</p>
+      <h1>Patterns hide in space.<br />We find them.</h1>
+      <p class="lede">Lucis Labs builds statistical models, geospatial pipelines, and honest visualisations. Everything on this site is computed at build time and shipped as static files.</p>
+      <p class="cta">
+        <a class="btn primary" href="/atlas/">Open the atlas →</a>
+        <a class="btn" href="/lab/">Browse the lab</a>
+      </p>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <ul class="stats">
+      {stats.map(([v, l]) => (<li><b>{v}</b><span>{l}</span></li>))}
+    </ul>
+
+    <h2>Featured projects</h2>
+    <div class="grid">
+      {projects.map((p) => (
+        <a class="card" href={`/projects/${p.id}/`}>
+          <span class={`tag ${p.data.kind}`}>{p.data.kind}</span>
+          <h3>{p.data.title}</h3>
+          <p class="mute">{p.data.summary}</p>
+          <div>{p.data.stack.map((s) => <span class="tag">{s}</span>)}</div>
+        </a>
+      ))}
+    </div>
+
+    <h2>Latest notes</h2>
+    <div class="grid">
+      {notes.map((n) => (
+        <a class="card" href={`/notes/${n.id}/`}>
+          <span class="mute mono small">{n.data.date.toISOString().slice(0, 10)}</span>
+          <h3>{n.data.title}</h3>
+          <p class="mute">{n.data.summary}</p>
+        </a>
+      ))}
+    </div>
+  </div>
+</Base>
+<style>
+  .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); background: radial-gradient(ellipse at 20% 0%, #0f2a2d 0%, var(--bg) 60%); }
+  .inner { position: relative; padding-top: 110px; padding-bottom: 110px; }
+  .lede { max-width: 56ch; font-size: 1.15rem; color: var(--mute); }
+  .cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
+  .btn { border: 1px solid var(--line); background: var(--bg-2); padding: 10px 18px; border-radius: 8px; text-decoration: none; color: var(--text); }
+  .btn:hover { border-color: var(--accent); color: #fff; }
+  .btn.primary { background: var(--accent); color: #04211d; border-color: var(--accent); font-weight: 600; }
+  .btn.primary:hover { background: #99f6e4; color: #04211d; }
+  .stats { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; padding: 0; margin: 32px 0 0; }
+  .stats li { border-left: 2px solid var(--accent); padding-left: 12px; }
+  .stats b { display: block; font: 600 1.5rem var(--mono); }
+  .stats span { color: var(--mute); font-size: .85rem; }
+  .small { font-size: .78rem; }
+  .mono { font-family: var(--mono); }
+  h3 { margin: 8px 0; font-size: 1.1rem; }
+</style>

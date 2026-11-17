@@ -1,0 +1,61 @@
+---
+import '../styles/global.css';
+const { title, description = 'Data science and spatial analysis lab.' } = Astro.props;
+const full = title ? `${title} · Lucis Labs` : 'Lucis Labs · Data science & spatial analysis';
+const nav = [
+  ['/projects/', 'Projects'],
+  ['/atlas/', 'Atlas'],
+  ['/lab/', 'Lab'],
+  ['/notes/', 'Notes'],
+  ['/about/', 'About'],
+];
+const path = Astro.url.pathname;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{full}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={new URL(path, Astro.site)} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <meta property="og:title" content={full} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#0a0f14" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap bar">
+        <a href="/" class="brand"><span class="dot"></span>lucis<b>labs</b></a>
+        <nav>
+          {nav.map(([href, label]) => (
+            <a href={href} aria-current={path.startsWith(href) ? 'page' : undefined}>{label}</a>
+          ))}
+        </nav>
+      </div>
+    </header>
+    <main><slot /></main>
+    <footer>
+      <div class="wrap foot">
+        <span class="mute">© {new Date().getFullYear()} Lucis Labs</span>
+        <span class="mute mono">built with Astro · deployed by GitHub Actions</span>
+      </div>
+    </footer>
+  </body>
+</html>
+<style>
+  .top { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; justify-content: space-between; height: 56px; gap: 12px; }
+  .brand { font: 1rem var(--mono); color: var(--text); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+  .brand b { color: var(--accent); font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  nav a { color: var(--mute); text-decoration: none; padding: 6px 10px; border-radius: 6px; font-size: .92rem; }
+  nav a:hover, nav a[aria-current] { color: var(--text); background: var(--bg-2); }
+  main { min-height: 70vh; padding-bottom: 80px; }
+  footer { border-top: 1px solid var(--line); padding: 24px 0; font-size: .85rem; }
+  .foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .mono { font-family: var(--mono); }
+</style>

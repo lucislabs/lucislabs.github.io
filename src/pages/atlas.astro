@@ -1,0 +1,63 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Atlas" description="Interactive map of a synthetic PM2.5 sensor network with hexagonal aggregation.">
+  <div class="wrap">
+    <div class="page-head">
+      <p class="eyebrow">atlas</p><h1>Atlas</h1>
+      <p class="mute prose">Synthetic PM2.5 readings from 220 stations along the Front Range. Points are raw readings; hexagons are the per-cell mean, built in <code>src/lib/geo.ts</code> and served as static GeoJSON.</p>
+    </div>
+    <div class="ctrl">
+      <label><input type="checkbox" id="hex" checked /> Hex mean</label>
+      <label><input type="checkbox" id="pts" checked /> Stations</label>
+      <span class="legend" id="legend"></span>
+    </div>
+    <div id="map" role="application" aria-label="Interactive map"></div>
+    <p class="mute small">Basemap © OpenStreetMap contributors. Data are simulated.</p>
+  </div>
+</Base>
+<script>
+  import L from 'leaflet';
+  import 'leaflet/dist/leaflet.css';
+  import { scaleSequential } from 'd3-scale';
+  import { interpolateInferno } from 'd3-scale-chromatic';
+  import type { FeatureCollection } from 'geojson';
+
+  const color = scaleSequential(interpolateInferno).domain([4, 28]);
+  const map = L.map('map', { zoomControl: true }).setView([39.75, -105], 9);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 18, className: 'dark-tiles',
+  }).addTo(map);
+
+  const load = (p: string) => fetch(p).then((r) => r.json() as Promise<FeatureCollection>);
+  const [hexes, pts] = await Promise.all([load('/data/hexbins.geojson'), load('/data/stations.geojson')]);
+
+  const hexLayer = L.geoJSON(hexes, {
+    style: (f) => ({ color: '#0a0f14', weight: 1, fillColor: color(f!.properties.mean), fillOpacity: 0.72 }),
+    onEachFeature: (f, l) => l.bindTooltip(`mean ${f.properties.mean} µg/m³ · n=${f.properties.n}`),
+  }).addTo(map);
+  const ptLayer = L.geoJSON(pts, {
+    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 3, color: '#fff', weight: 0.6, fillColor: color(f.properties.pm25), fillOpacity: 1 }),
+    onEachFeature: (f, l) => l.bindTooltip(`${f.properties.id}: ${f.properties.pm25} µg/m³`),
+  }).addTo(map);
+  map.fitBounds(hexLayer.getBounds());
+
+  const toggle = (id: string, layer: L.Layer) =>
+    (document.getElementById(id) as HTMLInputElement).addEventListener('change', (e) =>
+      (e.target as HTMLInputElement).checked ? layer.addTo(map) : map.removeLayer(layer));
+  toggle('hex', hexLayer);
+  toggle('pts', ptLayer);
+
+  const stops = [4, 10, 16, 22, 28];
+  document.getElementById('legend')!.innerHTML =
+    stops.map((v) => `<i style="background:${color(v)}"></i>${v}`).join('') + ' µg/m³';
+</script>
+<style is:global>
+  #map { height: min(68vh, 640px); border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); }
+  .dark-tiles { filter: invert(1) hue-rotate(180deg) brightness(.8) contrast(.9) saturate(.6); }
+  .leaflet-tooltip { background: var(--bg-2); color: var(--text); border-color: var(--line); font: 12px var(--mono); }
+  .ctrl { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; font-size: .9rem; }
+  .legend { margin-left: auto; font: .75rem var(--mono); color: var(--mute); display: flex; align-items: center; gap: 4px; }
+  .legend i { width: 18px; height: 10px; display: inline-block; margin-left: 6px; }
+  .small { font-size: .78rem; }
+</style>
